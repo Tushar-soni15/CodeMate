@@ -1,18 +1,31 @@
 const express = require('express');
 const connectDB = require("./config/database")
 const app = express();
-const User = require("./models/user")
+const User = require("./models/user");
+const { validateSignUp } = require('./helper/validate');
+const bcrypt = require("bcrypt")
 
 // MIDDLEWARE given by express js
 app.use(express.json()); // this converts the javascript oject to JSON. This is request parsing which can be gracefully done using the middleware.
 
 //POST api call to save the data to DB
 app.post("/signup", async (req, res) => {
-    console.log(req.body)
-    // create an instance of the User model
-    const user = new User(req.body)
+    // the schema level validator can be enough but we can explicitely go one step further to validate the data sent by the user.
+    // to get that validation - the best practice is to have a seperate file to write all the validations - these validator functions are also known as the helper functions. 
 
+    const {firstName, lastName, email, password} = req.body
     try {
+        validateSignUp(req);
+
+        console.log(req.body) // cannot be trusted
+
+        // Encrypt the password:
+
+        const passwordHash = await bcrypt.hash(password, 10)
+        console.log(passwordHash);
+
+        // create an instance of the User model with the required fields only.
+        const user = new User({firstName, lastName, email, password: passwordHash})
         await user.save();
         res.send("User added successfully")
     }
@@ -20,6 +33,32 @@ app.post("/signup", async (req, res) => {
         console.log("ERROR", err.message)
         res.status(400).send("Error saving the user info")
     }
+})
+
+//Login API
+
+app.post("/login", async (req, res) => {
+    try{
+        const {email, password} = req.body
+
+    //creating an instance of User for finding the email in the DB. If it exists or not.
+    const user = await User.findOne({email: email})
+    if (!user) {
+        throw new Error("Invalid Credentials") 
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+
+    if (isPasswordValid){
+        res.send("Login Successfull")
+    } else {
+        throw new Error("Invalid Credentials")
+    }
+    }catch(err){
+        console.log("ERROR", err.message)
+        res.status(400).send("Error Loggin you in")
+    }
+    
 })
 
 // GET api to get one user by the emailID:
@@ -58,14 +97,26 @@ app.delete("/user", async (req, res) => {
 });
 
 //UPDATE the user by the ID - find the difference between patch and put
-app.patch("/user", async (req, res) => {
-    const userId = req.body.userId
+app.patch("/user/:userId", async (req, res) => {
+    const userId = req.params?.userId
     // console.log("User ID:", userId);
     const data = req.body
     // console.log(data)
+
     try{
+        const ALLOWED_UPDATES = ["photo", "about", "gender", "age"]
+
+        const isUpdateAllowed = Object.keys(data).every((k) => ALLOWED_UPDATES.includes(k)
+        );
+
+        if(!isUpdateAllowed){
+            throw new Error("Field cannot be updated")
+        }
+
         const updatedUser = await User.findByIdAndUpdate(userId, data, {returnDocument: "after", runValidators: true, upsert: false});
+
         // console.log("Updated User:", updatedUser);
+
         res.send("User info updated !!")
     }catch(err){
         console.error("Update Error:", err);
