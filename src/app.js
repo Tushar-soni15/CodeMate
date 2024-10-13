@@ -4,10 +4,12 @@ const app = express();
 const User = require("./models/user");
 const { validateSignUp } = require('./helper/validate');
 const bcrypt = require("bcrypt")
+const cookieParser = require("cookie-parser")
+const jwt = require("jsonwebtoken");
 
 // MIDDLEWARE given by express js
 app.use(express.json()); // this converts the javascript oject to JSON. This is request parsing which can be gracefully done using the middleware.
-
+app.use(cookieParser());
 //POST api call to save the data to DB
 app.post("/signup", async (req, res) => {
     // the schema level validator can be enough but we can explicitely go one step further to validate the data sent by the user.
@@ -39,7 +41,7 @@ app.post("/signup", async (req, res) => {
 
 app.post("/login", async (req, res) => {
     try{
-        const {email, password} = req.body
+    const {email, password} = req.body
 
     //creating an instance of User for finding the email in the DB. If it exists or not.
     const user = await User.findOne({email: email})
@@ -50,6 +52,14 @@ app.post("/login", async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password)
 
     if (isPasswordValid){
+
+        // Create A JWT token
+        const token = await jwt.sign({_id: user._id}, "CodeMate@15");
+        console.log(token);
+
+        // add the jwt token into a cookie and send the response back to the user
+        res.cookie("token", token)
+
         res.send("Login Successfull")
     } else {
         throw new Error("Invalid Credentials")
