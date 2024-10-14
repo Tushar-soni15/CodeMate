@@ -1,17 +1,34 @@
 // check the authorization of the user thr middleware:
+const jwt = require("jsonwebtoken");
+const User = require("../models/user");
 
-const adminAuth = (req, res, next)=>{
-    // logic of checking if the req is authoqrized
-    console.log("Admin auth is under check!")
-    const token = "xyz";
-    const isAdminAuth = token === "xyz"
-    if (!isAdminAuth) {
-        res.status(401).send("You are not authorized for this page");
-    } else {
+const userAuth = async (req, res, next) => {
+    try {
+        // read the token from the req cookie
+        const cookies = req.cookies
+
+        const {token} = cookies; 
+
+        if(!token){
+            throw new Error("Invalid token ")
+        }
+        // validate the token
+        const decodedMessage = await jwt.verify(token, "CodeMate@15");
+        // Find the user
+        const {_id} = decodedMessage;
+
+        const user = await User.findById(_id);
+
+        if(!user){
+            throw new Error("User not found")
+        }
+        req.user = user;
         next();
+    } catch(err) {
+        res.status(400).send("Opps something went wrong")
     }
-};
+}
 
 module.exports = {
-    adminAuth,
+    userAuth
 }

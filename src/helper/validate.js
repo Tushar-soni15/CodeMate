@@ -12,8 +12,17 @@ const validateSignUp = (req) => {
     } else if (!validator.isStrongPassword(password)){
         throw new Error("Password is not strong enough - it must contain one capital letter, one small letter and a Number.")
     }
+};
+
+const validateAndEditData = (req) => {
+    const allowedEditFiles = ["firstName", "lastName", "about", "skills", "gender", "age"];
+
+    const isEditAllowed = Object.keys(req.body).every((item) => allowedEditFiles.includes(item)); 
+
+    return isEditAllowed;
 }
 
 module.exports = {
-    validateSignUp   
+    validateSignUp,
+    validateAndEditData
 }
